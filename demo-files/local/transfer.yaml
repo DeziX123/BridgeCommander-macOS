@@ -1,0 +1,4 @@
+project: Atlas
+mode: demo
+source: local
+target: /home/demo

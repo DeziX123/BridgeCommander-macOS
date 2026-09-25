@@ -1,0 +1,6 @@
+{
+  "project": "Atlas",
+  "environment": "demo",
+  "host": "files.example.net",
+  "enabled": true
+}

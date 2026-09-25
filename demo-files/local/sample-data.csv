@@ -1,0 +1,4 @@
+item,quantity,status
+module-a,12,ready
+module-b,8,review
+module-c,4,draft

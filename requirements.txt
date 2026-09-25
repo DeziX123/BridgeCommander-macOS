@@ -1,0 +1,7 @@
+PySide6-Essentials>=6.8,<7
+paramiko>=3,<6
+scp>=0.15,<1
+boto3>=1.35,<2
+requests>=2.32,<3
+keyring>=25,<27
+pyinstaller>=6,<7
