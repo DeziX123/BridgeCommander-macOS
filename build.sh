@@ -19,8 +19,8 @@ iconutil -c icns build/icon.iconset -o build/icon.icns
   --hidden-import keyring.backends.macOS \
   --exclude-module tkinter --exclude-module matplotlib --exclude-module IPython \
   --distpath dist --workpath build/pyinstaller --specpath build main.py
-plutil -replace CFBundleShortVersionString -string 0.1.0 "dist/Bridge Commander.app/Contents/Info.plist"
-plutil -replace CFBundleVersion -string 1 "dist/Bridge Commander.app/Contents/Info.plist"
+plutil -replace CFBundleShortVersionString -string 0.1.1 "dist/Bridge Commander.app/Contents/Info.plist"
+plutil -replace CFBundleVersion -string 2 "dist/Bridge Commander.app/Contents/Info.plist"
 codesign --force --deep --sign - "dist/Bridge Commander.app"
 codesign --verify --deep --strict "dist/Bridge Commander.app"
 echo "Built dist/Bridge Commander.app"

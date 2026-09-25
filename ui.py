@@ -24,8 +24,9 @@ from PySide6.QtWidgets import (
     QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
-from backend import Site, Entry, FS, LocalFS, connect, copy_tree, Cancelled
+from backend import Site, Entry, FS, LocalFS, SSHFS, connect, copy_tree, Cancelled
 from paths import load_config, save_config
+from terminal import TerminalWindow
 
 
 PROTOCOLS = ["SFTP", "SCP", "FTP", "FTPS", "FTPS Implicit", "WebDAV HTTPS", "WebDAV HTTP", "S3"]
@@ -762,6 +763,7 @@ class MainWindow(QMainWindow):
         self.config = load_config()
         self.local_fs = LocalFS()
         self.sessions = []
+        self.terminal_windows = set()
         self.displayed_session = None
         self.active = "local"
         self.pool = QThreadPool(self)
@@ -833,14 +835,20 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.command_row)
         function_row = QHBoxLayout()
         function_row.setSpacing(0)
-        for label, fn in [("F2 Rename", self.rename), ("F3 View", self.view),
-                          ("F4 Edit", self.edit), ("F5 Copy", self.copy),
-                          ("F6 Move", self.move_files), ("F7 New folder", self.new_folder),
-                          ("F8 Delete", self.delete), ("F9 Properties", self.properties),
-                          ("F10 Quit", self.close)]:
+        for label, icon, fn in [("F2 Rename", "pencil", self.rename),
+                                ("F3 View", "eye", self.view),
+                                ("F4 Edit", "page_white", self.edit),
+                                ("F5 Copy", "page_copy", self.copy),
+                                ("F6 Move", "arrow_switch", self.move_files),
+                                ("F7 New folder", "folder_add", self.new_folder),
+                                ("F8 Delete", "delete", self.delete),
+                                ("F9 Properties", "cog", self.properties),
+                                ("F10 Quit", "disconnect", self.close)]:
             button = QPushButton(label)
             button.setFlat(True)
             button.setFixedHeight(28)
+            button.setIcon(silk(icon))
+            button.setIconSize(QSize(16, 16))
             button.clicked.connect(fn)
             function_row.addWidget(button)
         layout.addLayout(function_row)
@@ -889,6 +897,7 @@ class MainWindow(QMainWindow):
         self._action(commands, "Synchronize…", self.synchronize, "Ctrl+S")
         self._action(commands, "Find files…", self.find_files, "Ctrl+F")
         self._action(commands, "Refresh", self.refresh, "Ctrl+R")
+        self._action(commands, "SSH terminal…", self.open_terminal, "Ctrl+T")
 
         session = bar.addMenu("Session")
         self._action(session, "New session…", self.new_session, "Ctrl+N")
@@ -963,6 +972,7 @@ class MainWindow(QMainWindow):
             ("Удалить", "delete", self.delete),
             ("Синхронизировать", "arrow_inout", self.synchronize),
             ("Найти файлы", "find", self.find_files),
+            ("Открыть SSH-терминал", "application_osx_terminal", self.open_terminal),
         ]
         for index, (label, icon_name, callback) in enumerate(commands):
             if index in (1, 5, 9, 11, 15):
@@ -1277,6 +1287,9 @@ class MainWindow(QMainWindow):
         if not 0 <= index < len(self.sessions):
             return
         session = self.sessions.pop(index)
+        for terminal in tuple(self.terminal_windows):
+            if terminal.session is session:
+                terminal.close()
         self.tabs.removeTab(index)
         if not self.sessions:
             self.tabs.setVisible(False)
@@ -1284,6 +1297,19 @@ class MainWindow(QMainWindow):
 
     def disconnect(self):
         self._close_tab(self.tabs.currentIndex())
+
+    def open_terminal(self):
+        session = self._require_session()
+        if not session:
+            return
+        if not isinstance(session["fs"], SSHFS):
+            QMessageBox.information(self, "SSH-терминал",
+                                    "Интерактивный терминал доступен для SFTP и SCP по SSH.")
+            return
+        terminal = TerminalWindow(session, self.remote.path, self)
+        terminal.closed.connect(self.terminal_windows.discard)
+        self.terminal_windows.add(terminal)
+        terminal.show()
 
     def navigate_local(self, path):
         path = os.path.abspath(os.path.expanduser(path))
@@ -1751,7 +1777,7 @@ class MainWindow(QMainWindow):
 
     def about(self):
         QMessageBox.about(self, "Bridge Commander",
-            "Bridge Commander 1.0 для macOS\n\nДвухпанельный файловый клиент: SFTP, SCP, FTP, FTPS, WebDAV, S3.\n\n"
+            "Bridge Commander 0.1.1 для macOS\n\nДвухпанельный файловый клиент: SFTP, SCP, FTP, FTPS, WebDAV, S3.\n\n"
             "Значки: Silk Icons, Mark James (CC BY 2.5).\n"
             "Независимое приложение, не связанное с WinSCP.")
 
@@ -1798,6 +1824,8 @@ class MainWindow(QMainWindow):
             os._exit(0)
 
     def _close_sessions(self):
+        for terminal in tuple(self.terminal_windows):
+            terminal.close()
         for session in self.sessions:
             try:
                 session["fs"].close()
